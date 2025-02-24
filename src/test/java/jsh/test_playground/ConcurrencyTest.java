@@ -2,7 +2,17 @@ package jsh.test_playground;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.*;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ConcurrencyTest {
 
@@ -120,6 +130,163 @@ public class ConcurrencyTest {
             t2.start();
             t1.join();
             t2.join();
+        }
+    }
+
+    @RepeatedTest(10)
+    void Qtest() throws InterruptedException {
+        Queue<Integer> queue = new ConcurrentLinkedQueue<>();
+        for (int i = 0; i < 100000; i++) {
+            queue.add(i);
+        }
+        int numberOfThreads = 10;
+
+        ExecutorService executorService = Executors.newFixedThreadPool(numberOfThreads);
+
+        // 시간 측정 시작
+        long startTime = System.nanoTime();
+
+        for (int i = 0; i < 100000; i++) {
+            executorService.submit(() -> {
+                queue.poll();
+            });
+        }
+
+        // ExecutorService 종료
+        executorService.shutdown();
+        executorService.awaitTermination(10, TimeUnit.SECONDS);
+
+        // 시간 측정 종료
+        long endTime = System.nanoTime();
+
+        // 검증
+        assertEquals(0,queue.size());
+//        assertTrue(queue.isEmpty());
+
+        System.out.println("Execution time: " + (endTime - startTime) / 1_000_000 + " ms");
+        triggerGC();
+    }
+    @RepeatedTest(10)
+    void Qtest3() throws InterruptedException {
+        Queue<Integer> queue = new ArrayBlockingQueue<>(100000);
+        for (int i = 0; i < 100000; i++) {
+            queue.add(i);
+        }
+        int numberOfThreads = 10;
+
+        ExecutorService executorService = Executors.newFixedThreadPool(numberOfThreads);
+
+        // 시간 측정 시작
+        long startTime = System.nanoTime();
+
+        for (int i = 0; i < 100000; i++) {
+            executorService.submit(() -> {
+                queue.poll();
+            });
+        }
+
+        // ExecutorService 종료
+        executorService.shutdown();
+        executorService.awaitTermination(10, TimeUnit.SECONDS);
+
+        // 시간 측정 종료
+        long endTime = System.nanoTime();
+
+        // 검증
+        assertEquals(0,queue.size());
+//        assertTrue(queue.isEmpty());
+
+        System.out.println("Execution time: " + (endTime - startTime) / 1_000_000 + " ms");
+    }
+    @Test
+    void Qtest2() throws InterruptedException {
+        Queue<Integer> queue = new LinkedList<>();
+        for (int i = 0; i < 50; i++) {
+            queue.add(i);
+        }
+        int numberOfThreads = 10;
+
+        ExecutorService executorService = Executors.newFixedThreadPool(numberOfThreads);
+
+        // 시간 측정 시작
+        long startTime = System.nanoTime();
+
+        for (int i = 0; i < 50; i++) {
+            executorService.submit(() -> {
+                queue.poll();
+            });
+        }
+
+        // ExecutorService 종료
+        executorService.shutdown();
+        executorService.awaitTermination(10, TimeUnit.SECONDS);
+
+        // 시간 측정 종료
+        long endTime = System.nanoTime();
+
+        // 검증
+        System.out.println("Execution time: " + (endTime - startTime) / 1_000_000 + " ms");
+        System.out.println(queue.size());
+        assertTrue(queue.isEmpty());
+
+    }
+
+    @Test
+    void QtestMultipleRuns() throws InterruptedException {
+        int numberOfRuns = 10; // 반복 횟수
+        List<Long> executionTimes = new ArrayList<>();
+
+        for (int run = 0; run < numberOfRuns; run++) {
+           // Queue<Integer> queue = new ArrayBlockingQueue<>(100000);
+            Queue<Integer> queue = new ConcurrentLinkedQueue<>();
+            for (int i = 0; i < 100000; i++) {
+                queue.add(i);
+            }
+
+            int numberOfThreads = 10;
+            ExecutorService executorService = Executors.newFixedThreadPool(numberOfThreads);
+
+            // 시간 측정 시작
+            long startTime = System.nanoTime();
+
+            for (int i = 0; i < 100000; i++) {
+                executorService.submit(queue::poll);
+            }
+
+            // ExecutorService 종료
+            executorService.shutdown();
+            executorService.awaitTermination(10, TimeUnit.SECONDS);
+
+            // 시간 측정 종료
+            long endTime = System.nanoTime();
+
+            // 검증
+            assertEquals(0, queue.size());
+
+            // 실행 시간 저장
+            executionTimes.add((endTime - startTime) / 1_000_000);
+            triggerGC();
+        }
+
+        // 실행 시간 출력
+        System.out.println("Execution times (ms): " + executionTimes);
+
+        // 간단한 통계
+        long min = executionTimes.stream().mapToLong(Long::longValue).min().orElse(0);
+        long max = executionTimes.stream().mapToLong(Long::longValue).max().orElse(0);
+        double average = executionTimes.stream().mapToLong(Long::longValue).average().orElse(0);
+
+        System.out.println("Min: " + min + " ms");
+        System.out.println("Max: " + max + " ms");
+        System.out.println("Average: " + average + " ms");
+    }
+
+    void triggerGC() {
+        System.gc();
+        try {
+            Thread.sleep(1000); // GC가 완료될 시간을 주기 위해 대기
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 }
